@@ -6,9 +6,10 @@ const apiKeyAuthMiddlewareConfigSchema = z
     apiKey: z.string().optional(),
     headerName: z.string().optional(),
     validateApiKey: z
-      .function()
-      .args(z.string())
-      .returns(z.promise(z.boolean()))
+      .function({
+        input: z.tuple([z.string()]),
+        output: z.promise(z.boolean()),
+      })
       .optional(),
   })
   .strict()

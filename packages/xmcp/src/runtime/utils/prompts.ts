@@ -1,9 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp";
-import { ZodOptional, ZodType, ZodTypeDef } from "zod";
+import { z } from "zod";
 import { PromptFile } from "./server";
 import { isZodRawShape, pathToName } from "./tools";
 import { transformPromptHandler } from "./transformers/prompt";
-import { ZodRawShape } from "zod";
 
 interface PromptMetadata {
   name: string;
@@ -13,9 +12,7 @@ interface PromptMetadata {
 }
 
 export type PromptArgsRawShape = {
-  [k: string]:
-    | ZodType<string, ZodTypeDef, string>
-    | ZodOptional<ZodType<string, ZodTypeDef, string>>;
+  [k: string]: z.ZodType<string> | z.ZodOptional<z.ZodType<string>>;
 };
 
 /** Loads prompts and injects them into the server */
@@ -31,7 +28,7 @@ export function addPromptsToServer(
       title: defaultName,
       description: "No description provided",
     };
-    let promptSchema: ZodRawShape = {};
+    let promptSchema: z.ZodRawShape = {};
 
     const { default: handler, metadata, schema } = promptModule;
 

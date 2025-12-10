@@ -4,7 +4,8 @@ import {
   ServerNotification,
 } from "@modelcontextprotocol/sdk/types";
 import { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol";
-import { ZodRawShape } from "zod";
+import { z } from "zod";
+type ZodRawShape = z.ZodRawShape;
 import {
   composeUriFromPath,
   ResourceInfo,
@@ -183,7 +184,9 @@ function extractParametersFromUri(
     }
 
     try {
-      validatedParameters[paramName] = paramSchema.parse(paramValue);
+      validatedParameters[paramName] = (paramSchema as z.ZodType).parse(
+        paramValue
+      );
     } catch (error) {
       throw new Error(
         `Invalid parameter "${paramName}": ${paramValue}. ` +

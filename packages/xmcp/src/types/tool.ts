@@ -29,10 +29,7 @@ export interface ToolMetadata {
   };
 }
 
-export type ToolSchema = Record<
-  string,
-  z.ZodType<unknown, z.ZodTypeDef, unknown>
->;
+export type ToolSchema = Record<string, z.ZodType>;
 
 // The ToolExtraArguments type is equivalent to Parameters<ToolCallback<undefined>>[0] from @modelcontextprotocol/sdk but fully resolved to avoid external type dependencies.
 /**
