@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { type InferSchema, type ToolMetadata } from "xmcp";
-import { headers } from "xmcp/headers";
-import { commet } from "../lib/commet";
+import { track } from "@xmcp-dev/commet";
 
 export const schema = {
   prompt: z.string().describe("The prompt to generate content from"),
@@ -9,22 +8,13 @@ export const schema = {
 
 export const metadata: ToolMetadata = {
   name: "ai-generate",
-  description: "Generate content with AI — metered feature, tracks units per call",
-  annotations: {
-    title: "AI Generate",
-    readOnlyHint: true,
-    destructiveHint: false,
-    idempotentHint: false,
-  },
+  description: "Generate content with AI, metered feature that tracks units per call",
 };
 
-// Consumption gate — track() checks access + records 1 unit
 export default async function aiGenerate({
   prompt,
 }: InferSchema<typeof schema>) {
-  const customerKey = headers()["customer-key"];
-
-  const result = await commet.track(customerKey as string, {
+  const result = await track({
     feature: "ai-generate",
     units: 1,
   });

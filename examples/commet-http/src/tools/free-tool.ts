@@ -7,13 +7,7 @@ export const schema = {
 
 export const metadata: ToolMetadata = {
   name: "search",
-  description: "Search public documentation — free for all users",
-  annotations: {
-    title: "Search docs",
-    readOnlyHint: true,
-    destructiveHint: false,
-    idempotentHint: true,
-  },
+  description: "Search public documentation, free for all users",
 };
 
 export default async function search({ query }: InferSchema<typeof schema>) {

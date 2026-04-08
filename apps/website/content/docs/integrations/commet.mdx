@@ -8,14 +8,14 @@ description: "Add subscription-aware billing, feature gating, and usage tracking
 
 ## Overview
 
-The Commet plugin enables subscription-aware billing for your xmcp server using [Commet](https://commet.co/). Your tools get full context: which plan the customer is on, what features they can access, how much usage remains, and automatic consumption tracking.
+The Commet plugin enables subscription-aware billing for your xmcp server using [Commet](https://commet.co/?utm_source=xmcp&utm_medium=docs&utm_campaign=plugin). Your tools get full context: which plan the customer is on, what features they can access, how much usage remains, and automatic consumption tracking.
 
-- **Feature-level gating** — Tool A is free, Tool B is Pro, Tool C is Enterprise
-- **Usage tracking with enforcement** — metered, credits, or balance models with real limits
-- **AI token billing** — track per-model token consumption with configurable margins
-- **Rich context** — your tools know the customer's plan, remaining quota, and limits
-- **Full billing** — invoices, proration, checkout, customer portal
-- **Taxes and compliance** — Commet handles everything as Merchant of Record
+- **Feature-level gating**: Tool A is free, Tool B is Pro, Tool C is Enterprise
+- **Usage tracking with enforcement**: metered, credits, or balance models with real limits
+- **AI token billing**: track per-model token consumption with configurable margins
+- **Rich context**: your tools know the customer's plan, remaining quota, and limits
+- **Full billing**: invoices, proration, checkout, customer portal
+- **Taxes and compliance**: Commet handles everything as Merchant of Record
 
 ## Installation
 
@@ -47,51 +47,60 @@ The Commet plugin enables subscription-aware billing for your xmcp server using 
 
 ## Commet Setup
 
-Before integrating the plugin, set up your product on [Commet](https://commet.co/):
+Follow these steps to configure your billing product before integrating the plugin:
 
-1. Create a **Plan** with the features you want to gate (e.g., `ai-generate`, `export`)
-2. Configure each feature as **boolean** (on/off) or **metered** (usage-based)
-3. Set included quotas, overage pricing, or limits
-4. Get your **API Key** (`ck_xxx`) from the Commet dashboard
+1. **Create an account** at [commet.co/signup](https://commet.co/signup?utm_source=xmcp&utm_medium=docs&utm_campaign=plugin)
+2. **Create a Product** from the dashboard. This represents your xmcp server
+3. **Define your Plans** (e.g., Free, Pro, Enterprise). Each plan includes a set of features
+4. **Add Features** to each plan. Choose the type per feature:
+   - **Boolean**: on/off access (e.g., `export`, `custom-branding`)
+   - **Metered**: usage-based with included quotas and optional overage pricing (e.g., `ai-generate` with 1000 included units)
+5. **Set pricing** for each plan: monthly/yearly intervals, per-seat, or flat rate
+6. **Copy your API Key** (`ck_xxx`) from Settings > API Keys
+
+<Callout variant="info">
+  Use the sandbox environment (`ck_test_xxx`) during development. Switch to your production key when you're ready to go live.
+</Callout>
 
 ## Configuration
 
-Initialize the Commet provider:
+Register the Commet provider in your middleware:
 
-```typescript title="src/lib/commet.ts"
-import { CommetProvider } from "@xmcp-dev/commet";
+```typescript title="src/middleware.ts"
+import { commetProvider } from "@xmcp-dev/commet";
 
-export const commet = CommetProvider.getInstance({
-  apiKey: process.env.COMMET_API_KEY,
-  environment: "sandbox", // or "production"
+export default commetProvider({
+  apiKey: process.env.COMMET_API_KEY!,
+  environment: "sandbox",
 });
 ```
 
 ### Configuration Options
 
 ```typescript
-interface Configuration {
+interface CommetProviderConfig {
   apiKey: string;
   environment?: "production" | "sandbox";
+  customerHeader?: string;
 }
 ```
 
-- `apiKey` — Your Commet API key (starts with `ck_`)
-- `environment` — Environment type (defaults to `"production"`)
+- `apiKey`: Your Commet API key (starts with `ck_`)
+- `environment`: Defaults to the SDK's default environment
+- `customerHeader`: HTTP header name for the customer identifier (defaults to `"customer-key"`)
 
 <Callout variant="info">
-  Customer identity is provided via the `customer-key` header containing the customer's external ID. This is the same ID you use when creating customers in Commet.
+  Customer identity is provided via the `customer-key` header (or whatever you configure in `customerHeader`). This is the same ID you use when creating customers in Commet.
 </Callout>
 
 ## Feature Gating
 
-Use `check` to gate tools behind boolean features. No usage is tracked — it's a pure on/off gate:
+Use `check` to gate tools behind boolean features. No usage is tracked:
 
 ```typescript
-import { headers } from "xmcp/headers";
+import { check } from "@xmcp-dev/commet";
 
-const customerKey = headers()["customer-key"];
-const result = await commet.check(customerKey, "custom-branding");
+const result = await check("custom-branding");
 
 if (!result.allowed) {
   return result.message;
@@ -103,10 +112,9 @@ if (!result.allowed) {
 ```typescript
 {
   allowed: boolean;
-  code: string;
+  code: "feature_enabled" | "feature_not_allowed" | "no_subscription";
   message: string;
-  plan?: string;       // "pro", "enterprise", etc.
-  portalUrl?: string;  // URL for the customer to upgrade
+  plan?: string;       // "Pro", "Enterprise", etc.
 }
 ```
 
@@ -115,7 +123,9 @@ if (!result.allowed) {
 Use `track` for consumption-based features. It checks access and records usage in one call:
 
 ```typescript
-const result = await commet.track(customerKey, {
+import { track } from "@xmcp-dev/commet";
+
+const result = await track({
   feature: "ai-generate",
   units: 1,
 });
@@ -124,14 +134,14 @@ if (!result.allowed) {
   return result.message;
 }
 
-// result.remaining → 847
-// result.included  → 1000
+// result.remaining -> 847
+// result.included  -> 1000
 ```
 
 For operations with different cost weights:
 
 ```typescript
-const result = await commet.track(customerKey, {
+const result = await track({
   feature: "ai-generate",
   units: 5,
 });
@@ -142,14 +152,13 @@ const result = await commet.track(customerKey, {
 ```typescript
 {
   allowed: boolean;
-  code: string;
+  code: "tracked" | "feature_not_allowed" | "no_subscription";
   message: string;
-  plan?: string;         // "pro"
+  plan?: string;         // "Pro"
   remaining?: number;    // 847
   included?: number;     // 1000
   overage?: number;      // 0
   unlimited?: boolean;   // false
-  portalUrl?: string;
 }
 ```
 
@@ -158,7 +167,9 @@ const result = await commet.track(customerKey, {
 For AI-powered tools, track token consumption per model:
 
 ```typescript
-const result = await commet.track(customerKey, {
+import { track } from "@xmcp-dev/commet";
+
+const result = await track({
   feature: "ai-generate",
   model: "claude-sonnet-4-20250514",
   inputTokens: 1200,
@@ -169,15 +180,37 @@ const result = await commet.track(customerKey, {
 
 Commet calculates costs using the AI model catalog with configurable margins per feature.
 
+## Helpers
+
+### `getCustomerId()`
+
+Returns the customer ID extracted from the request header. Throws if no customer header is present:
+
+```typescript
+import { getCustomerId } from "@xmcp-dev/commet";
+
+const customerId = getCustomerId();
+```
+
+### `getPortalUrl()`
+
+Returns the customer's billing portal URL for upgrade/management flows:
+
+```typescript
+import { getPortalUrl } from "@xmcp-dev/commet";
+
+const portalUrl = await getPortalUrl();
+```
+
 ## Example
 
 A complete example with a free tool, a boolean-gated tool, and a metered tool:
 
-```typescript title="src/lib/commet.ts"
-import { CommetProvider } from "@xmcp-dev/commet";
+```typescript title="src/middleware.ts"
+import { commetProvider } from "@xmcp-dev/commet";
 
-export const commet = CommetProvider.getInstance({
-  apiKey: process.env.COMMET_API_KEY,
+export default commetProvider({
+  apiKey: process.env.COMMET_API_KEY!,
   environment: "production",
 });
 ```
@@ -192,7 +225,7 @@ export const schema = {
 
 export const metadata: ToolMetadata = {
   name: "search",
-  description: "Search public documentation — free for all users",
+  description: "Search public documentation, free for all users",
 };
 
 export default async function search({ query }: InferSchema<typeof schema>) {
@@ -203,8 +236,7 @@ export default async function search({ query }: InferSchema<typeof schema>) {
 ```typescript title="src/tools/export-tool.ts"
 import { z } from "zod";
 import { type InferSchema, type ToolMetadata } from "xmcp";
-import { headers } from "xmcp/headers";
-import { commet } from "../lib/commet";
+import { check } from "@xmcp-dev/commet";
 
 export const schema = {
   format: z.enum(["csv", "json", "pdf"]).describe("Export format"),
@@ -212,15 +244,13 @@ export const schema = {
 
 export const metadata: ToolMetadata = {
   name: "export",
-  description: "Export data — boolean feature, Pro plan only",
+  description: "Export data, Pro plan only",
 };
 
 export default async function exportData({
   format,
 }: InferSchema<typeof schema>) {
-  const customerKey = headers()["customer-key"];
-
-  const result = await commet.check(customerKey, "export");
+  const result = await check("export");
 
   if (!result.allowed) {
     return result.message;
@@ -233,8 +263,7 @@ export default async function exportData({
 ```typescript title="src/tools/pro-tool.ts"
 import { z } from "zod";
 import { type InferSchema, type ToolMetadata } from "xmcp";
-import { headers } from "xmcp/headers";
-import { commet } from "../lib/commet";
+import { track } from "@xmcp-dev/commet";
 
 export const schema = {
   prompt: z.string().describe("The prompt to generate content from"),
@@ -242,15 +271,13 @@ export const schema = {
 
 export const metadata: ToolMetadata = {
   name: "ai-generate",
-  description: "Generate content with AI — metered feature, tracks units",
+  description: "Generate content with AI, metered feature that tracks units",
 };
 
 export default async function aiGenerate({
   prompt,
 }: InferSchema<typeof schema>) {
-  const customerKey = headers()["customer-key"];
-
-  const result = await commet.track(customerKey, {
+  const result = await track({
     feature: "ai-generate",
     units: 1,
   });

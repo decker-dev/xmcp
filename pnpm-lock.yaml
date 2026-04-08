@@ -1148,7 +1148,13 @@ importers:
       '@commet/node':
         specifier: ^1.8.0
         version: 1.8.0(typescript@5.9.3)
+      express:
+        specifier: ^4.22.1
+        version: 4.22.1
     devDependencies:
+      '@types/express':
+        specifier: ^5.0.6
+        version: 5.0.6
       '@types/node':
         specifier: ^22.19.2
         version: 22.19.2

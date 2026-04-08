@@ -1,19 +1,36 @@
-export interface Configuration {
+export interface CommetProviderConfig {
   apiKey: string;
   environment?: "production" | "sandbox";
+  customerHeader?: string;
 }
 
-// ── check() ──
+export type CheckCode =
+  | "feature_enabled"
+  | "feature_not_allowed"
+  | "no_subscription";
 
 export interface CheckResult {
   allowed: boolean;
-  code: string;
+  code: CheckCode;
   message: string;
   plan?: string;
-  portalUrl?: string;
 }
 
-// ── track() ──
+export type TrackCode =
+  | "tracked"
+  | "feature_not_allowed"
+  | "no_subscription";
+
+export interface TrackResult {
+  allowed: boolean;
+  code: TrackCode;
+  message: string;
+  plan?: string;
+  remaining?: number;
+  included?: number;
+  overage?: number;
+  unlimited?: boolean;
+}
 
 interface TrackUsageOptions {
   feature: string;
@@ -36,15 +53,3 @@ interface TrackTokensOptions {
 }
 
 export type TrackOptions = TrackUsageOptions | TrackTokensOptions;
-
-export interface TrackResult {
-  allowed: boolean;
-  code: string;
-  message: string;
-  plan?: string;
-  remaining?: number;
-  included?: number;
-  overage?: number;
-  unlimited?: boolean;
-  portalUrl?: string;
-}

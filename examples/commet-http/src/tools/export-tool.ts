@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { type InferSchema, type ToolMetadata } from "xmcp";
-import { headers } from "xmcp/headers";
-import { commet } from "../lib/commet";
+import { check } from "@xmcp-dev/commet";
 
 export const schema = {
   format: z.enum(["csv", "json", "pdf"]).describe("Export format"),
@@ -9,22 +8,13 @@ export const schema = {
 
 export const metadata: ToolMetadata = {
   name: "export",
-  description: "Export data in multiple formats — boolean feature, Pro plan only",
-  annotations: {
-    title: "Export data",
-    readOnlyHint: true,
-    destructiveHint: false,
-    idempotentHint: true,
-  },
+  description: "Export data in multiple formats, Pro plan only",
 };
 
-// Boolean gate — check() only, no usage tracked
 export default async function exportData({
   format,
 }: InferSchema<typeof schema>) {
-  const customerKey = headers()["customer-key"];
-
-  const result = await commet.check(customerKey as string, "export");
+  const result = await check("export");
 
   if (!result.allowed) {
     return result.message;

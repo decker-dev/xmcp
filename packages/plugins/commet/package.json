@@ -40,9 +40,11 @@
     "build": "rm -rf dist && tsc"
   },
   "dependencies": {
-    "@commet/node": "^1.8.0"
+    "@commet/node": "^1.8.0",
+    "express": "^4.22.1"
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
     "@types/node": "^22.19.2",
     "typescript": "^5.9.3",
     "xmcp": "workspace:*"
