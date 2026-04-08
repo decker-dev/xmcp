@@ -8,7 +8,7 @@ export const schema = {
 
 export const metadata: ToolMetadata = {
   name: "ai-chat",
-  description: "Chat with AI, tracks tokens per model",
+  description: "Chat with AI, tracks token consumption per model",
 };
 
 export default async function aiChat({

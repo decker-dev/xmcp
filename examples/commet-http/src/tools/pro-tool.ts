@@ -8,7 +8,7 @@ export const schema = {
 
 export const metadata: ToolMetadata = {
   name: "ai-generate",
-  description: "Generate content with AI, metered feature that tracks units per call",
+  description: "Generate content with AI, tracks 1 unit per call",
 };
 
 export default async function aiGenerate({
