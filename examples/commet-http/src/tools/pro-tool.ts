@@ -7,7 +7,7 @@ export const schema = {
 };
 
 export const metadata: ToolMetadata = {
-  name: "ai-generate",
+  name: "ai_generate",
   description: "Generate content with AI, tracks 1 unit per call",
 };
 
@@ -15,7 +15,7 @@ export default async function aiGenerate({
   prompt,
 }: InferSchema<typeof schema>) {
   const result = await track({
-    feature: "ai-generate",
+    feature: "ai_generate",
     units: 1,
   });
 

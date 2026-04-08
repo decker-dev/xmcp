@@ -7,14 +7,14 @@ export const schema = {
 };
 
 export const metadata: ToolMetadata = {
-  name: "ai-chat",
+  name: "ai_chat",
   description: "Chat with AI, tracks token consumption per model",
 };
 
 export default async function aiChat({
   prompt,
 }: InferSchema<typeof schema>) {
-  const preCheck = await check("ai-chat");
+  const preCheck = await check("ai_chat");
   if (!preCheck.allowed) {
     return preCheck.message;
   }
@@ -24,7 +24,7 @@ export default async function aiChat({
   const outputTokens = aiResponse.split(" ").length * 2;
 
   const trackResult = await track({
-    feature: "ai-chat",
+    feature: "ai_chat",
     model: "claude-sonnet-4-20250514",
     inputTokens,
     outputTokens,
