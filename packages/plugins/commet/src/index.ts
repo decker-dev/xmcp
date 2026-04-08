@@ -37,8 +37,8 @@ export class CommetProvider {
    * Check if a boolean feature is enabled for a customer.
    * No usage is tracked — this is a pure access gate.
    */
-  async check(externalId: string, feature: string): Promise<CheckResult> {
-    if (!externalId || externalId.trim() === "") {
+  async check(customerId: string, feature: string): Promise<CheckResult> {
+    if (!customerId || customerId.trim() === "") {
       return {
         allowed: false,
         code: "customer_missing",
@@ -46,7 +46,7 @@ export class CommetProvider {
       };
     }
 
-    const customer = this.client.customer(externalId);
+    const customer = this.client.customer(customerId);
 
     try {
       const [featureResponse, subscriptionResponse] = await Promise.all([
@@ -79,8 +79,8 @@ export class CommetProvider {
    * Check access to a feature and track consumption.
    * Supports simple units or AI token tracking by model.
    */
-  async track(externalId: string, options: TrackOptions): Promise<TrackResult> {
-    if (!externalId || externalId.trim() === "") {
+  async track(customerId: string, options: TrackOptions): Promise<TrackResult> {
+    if (!customerId || customerId.trim() === "") {
       return {
         allowed: false,
         code: "customer_missing",
@@ -88,7 +88,7 @@ export class CommetProvider {
       };
     }
 
-    const customer = this.client.customer(externalId);
+    const customer = this.client.customer(customerId);
 
     try {
       const [featureResponse, subscriptionResponse] = await Promise.all([
@@ -112,7 +112,7 @@ export class CommetProvider {
         return this.buildDeniedTrackResult(customer, featureAccess, planName);
       }
 
-      await this.reportUsage(externalId, customer, options);
+      await this.reportUsage(customerId, customer, options);
 
       return {
         allowed: true,
@@ -136,14 +136,14 @@ export class CommetProvider {
   // ── Internal ──
 
   private async reportUsage(
-    externalId: string,
+    customerId: string,
     customer: CustomerContext,
     options: TrackOptions
   ): Promise<void> {
     if ("model" in options && options.model) {
       await this.client.usage.track({
         feature: options.feature,
-        externalId,
+        customerId,
         model: options.model,
         inputTokens: options.inputTokens,
         outputTokens: options.outputTokens,
