@@ -1153,7 +1153,7 @@ importers:
   packages/plugins/commet:
     dependencies:
       '@commet/node':
-        specifier: ^1.8.0
+        specifier: ^1.9.0
         version: 1.9.0(typescript@5.9.3)
       express:
         specifier: ^4.22.1
