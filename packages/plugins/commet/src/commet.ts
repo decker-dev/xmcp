@@ -1,5 +1,17 @@
+import type { Commet } from "@commet/node";
 import { getCommetContext } from "./context.js";
 import type { CheckResult, TrackResult, TrackOptions } from "./types.js";
+
+export function getClient(): Commet {
+  const { client } = getCommetContext();
+  if (!client) {
+    throw new Error(
+      "[Commet] Client not initialized. " +
+        "Ensure this is called within a request context with commetProvider configured."
+    );
+  }
+  return client;
+}
 
 export function getCustomerId(): string {
   const { customerId } = getCommetContext();
@@ -13,7 +25,7 @@ export function getCustomerId(): string {
 }
 
 export async function getPortalUrl(): Promise<string> {
-  const { client } = getCommetContext();
+  const client = getClient();
   const customerId = getCustomerId();
   const response = await client.customer(customerId).portal.getUrl();
   if (!response.success || !response.data) {
@@ -23,7 +35,7 @@ export async function getPortalUrl(): Promise<string> {
 }
 
 export async function check(feature: string): Promise<CheckResult> {
-  const { client } = getCommetContext();
+  const client = getClient();
   const customerId = getCustomerId();
   const customer = client.customer(customerId);
 
@@ -60,7 +72,7 @@ export async function check(feature: string): Promise<CheckResult> {
 }
 
 export async function track(options: TrackOptions): Promise<TrackResult> {
-  const { client } = getCommetContext();
+  const client = getClient();
   const customerId = getCustomerId();
   const customer = client.customer(customerId);
 

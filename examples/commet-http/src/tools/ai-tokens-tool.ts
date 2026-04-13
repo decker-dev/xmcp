@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { type InferSchema, type ToolMetadata } from "xmcp";
-import { check, track } from "@xmcp-dev/commet";
+import { track } from "@xmcp-dev/commet";
 
 export const schema = {
   prompt: z.string().describe("The prompt to send to the AI model"),
@@ -14,25 +14,16 @@ export const metadata: ToolMetadata = {
 export default async function aiChat({
   prompt,
 }: InferSchema<typeof schema>) {
-  const preCheck = await check("ai_chat");
-  if (!preCheck.allowed) {
-    return preCheck.message;
-  }
-
-  const aiResponse = `Response to: "${prompt}"`;
-  const inputTokens = prompt.split(" ").length * 2;
-  const outputTokens = aiResponse.split(" ").length * 2;
-
-  const trackResult = await track({
+  const result = await track({
     feature: "ai_chat",
     model: "anthropic/claude-haiku-4.5",
-    inputTokens,
-    outputTokens,
+    inputTokens: prompt.split(" ").length * 2,
+    outputTokens: 6,
   });
 
-  if (!trackResult.allowed) {
-    return trackResult.message;
+  if (!result.allowed) {
+    return result.message;
   }
 
-  return aiResponse;
+  return `Response to: "${prompt}"`;
 }

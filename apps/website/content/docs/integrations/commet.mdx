@@ -18,6 +18,8 @@ The Commet plugin enables subscription-aware billing for your xmcp server using 
 
 ## Installation
 
+Install the Commet plugin:
+
 <TerminalTabs
   tabs={[
     {
@@ -49,13 +51,13 @@ The Commet plugin enables subscription-aware billing for your xmcp server using 
 Follow these steps to configure your billing product before integrating the plugin:
 
 1. **Create an account** at [commet.co/signup](https://commet.co/signup?utm_source=xmcp&utm_medium=docs&utm_campaign=plugin)
-2. **Create a Product** from the dashboard. This represents your xmcp server
-3. **Define your Plans** (e.g., Free, Pro, Enterprise). Each plan includes a set of features
-4. **Add Features** to each plan. Choose the type per feature:
+2. **Copy your API Key** (`ck_xxx`) from Settings > API Keys
+3. **Create a Product** from the dashboard. This represents your xmcp server
+4. **Define your Plans** (e.g., Free, Pro, Enterprise). Each plan includes a set of features
+5. **Add Features** to each plan. Choose the type per feature:
    - **Boolean**: on/off access (e.g., `export`, `custom-branding`)
    - **Metered**: usage-based with included quotas and optional overage pricing (e.g., `ai_generate` with 1000 included units)
-5. **Set pricing** for each plan: monthly/yearly intervals, per-seat, or flat rate
-6. **Copy your API Key** (`ck_xxx`) from Settings > API Keys
+6. **Set pricing** for each plan: monthly/yearly intervals, per-seat, or flat rate
 
 <Callout variant="info">
   Use the sandbox environment (`ck_test_xxx`) during development. Switch to your production key when you're ready to go live.
@@ -89,7 +91,7 @@ interface CommetProviderConfig {
 - `customerHeader`: HTTP header name for the customer identifier (defaults to `"customer-key"`)
 
 <Callout variant="info">
-  Customer identity is provided via the `customer-key` header (or whatever you configure in `customerHeader`). This is the same ID you use when creating customers in Commet.
+  Customer identity is provided via the `customer-key` header (or the established header name you configure in `customerHeader`). This is the same ID you use when creating customers in Commet.
 </Callout>
 
 ## Feature Gating
@@ -119,7 +121,33 @@ if (!result.allowed) {
 
 ## Usage Tracking
 
-Use `track` for consumption-based features. It checks access and records usage in one call:
+Use `track` for consumption-based features. It checks access and records usage in one call.
+
+### `TrackOptions`
+
+`track` accepts a discriminated union. Pass either `units` for metered consumption, or `model` with token counts for AI token tracking:
+
+```typescript
+// Metered consumption
+type TrackUsageOptions = {
+  feature: string;
+  units: number;
+};
+
+// AI token tracking
+type TrackTokensOptions = {
+  feature: string;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
+};
+
+type TrackOptions = TrackUsageOptions | TrackTokensOptions;
+```
+
+### Metered usage
 
 ```typescript
 import { track } from "@xmcp-dev/commet";
@@ -146,22 +174,7 @@ const result = await track({
 });
 ```
 
-### Track Response
-
-```typescript
-{
-  allowed: boolean;
-  code: "tracked" | "feature_not_allowed" | "no_subscription";
-  message: string;
-  plan?: string;         // "Pro"
-  remaining?: number;    // 847
-  included?: number;     // 1000
-  overage?: number;      // 0
-  unlimited?: boolean;   // false
-}
-```
-
-## AI Token Tracking
+### AI token tracking
 
 For AI-powered tools, track token consumption per model:
 
@@ -179,112 +192,74 @@ const result = await track({
 
 Commet calculates costs using the AI model catalog with configurable margins per feature.
 
-## Helpers
-
-### `getCustomerId()`
-
-Returns the customer ID extracted from the request header. Throws if no customer header is present:
+### Track Response
 
 ```typescript
-import { getCustomerId } from "@xmcp-dev/commet";
-
-const customerId = getCustomerId();
+{
+  allowed: boolean;
+  code: "tracked" | "feature_not_allowed" | "no_subscription";
+  message: string;
+  plan?: string;         // "Pro"
+  remaining?: number;    // 847
+  included?: number;     // 1000
+  overage?: number;      // 0
+  unlimited?: boolean;   // false
+}
 ```
 
-### `getPortalUrl()`
+## Access the client
 
-Returns the customer's billing portal URL for upgrade/management flows:
+The `getClient()` function gives you access to the full [`@commet/node` SDK](https://commet.co/docs/sdks/node?utm_source=xmcp&utm_medium=docs&utm_campaign=plugin), allowing you to leverage all Commet features in your MCP tools.
 
-```typescript
-import { getPortalUrl } from "@xmcp-dev/commet";
+### Example: Get the customer's billing portal URL
 
-const portalUrl = await getPortalUrl();
+```typescript title="src/tools/manage-billing.ts"
+import type { ToolMetadata } from "xmcp";
+import { getClient, getCustomerId } from "@xmcp-dev/commet";
+
+export const metadata: ToolMetadata = {
+  name: "manage-billing",
+  description: "Get the customer's billing portal link",
+};
+
+export default async function manageBilling(): Promise<string> {
+  const client = getClient();
+  const customerId = getCustomerId();
+  const response = await client.customer(customerId).portal.getUrl();
+
+  if (!response.success || !response.data) {
+    return "Unable to retrieve billing portal.";
+  }
+
+  return `Manage your subscription: ${response.data.portalUrl}`;
+}
+```
+
+### Example: Get current subscription details
+
+```typescript title="src/tools/subscription-info.ts"
+import type { ToolMetadata } from "xmcp";
+import { getClient, getCustomerId } from "@xmcp-dev/commet";
+
+export const metadata: ToolMetadata = {
+  name: "subscription-info",
+  description: "Get the customer's current subscription details",
+};
+
+export default async function subscriptionInfo(): Promise<string> {
+  const client = getClient();
+  const customerId = getCustomerId();
+  const response = await client.customer(customerId).subscription.get();
+
+  if (!response.success || !response.data) {
+    return "No active subscription found.";
+  }
+
+  const sub = response.data;
+  return `Plan: ${sub.plan.name} | Status: ${sub.status}`;
+}
 ```
 
 ## Example
 
-A complete example with a free tool, a boolean-gated tool, and a metered tool:
-
-```typescript title="src/middleware.ts"
-import { commetProvider } from "@xmcp-dev/commet";
-
-export default commetProvider({
-  apiKey: process.env.COMMET_API_KEY!,
-  environment: "production",
-});
-```
-
-```typescript title="src/tools/free-tool.ts"
-import { z } from "zod";
-import { type InferSchema, type ToolMetadata } from "xmcp";
-
-export const schema = {
-  query: z.string().describe("The search query"),
-};
-
-export const metadata: ToolMetadata = {
-  name: "search",
-  description: "Search public documentation, free for all users",
-};
-
-export default async function search({ query }: InferSchema<typeof schema>) {
-  return `Results for "${query}": [doc1, doc2, doc3]`;
-}
-```
-
-```typescript title="src/tools/export-tool.ts"
-import { z } from "zod";
-import { type InferSchema, type ToolMetadata } from "xmcp";
-import { check } from "@xmcp-dev/commet";
-
-export const schema = {
-  format: z.enum(["csv", "json", "pdf"]).describe("Export format"),
-};
-
-export const metadata: ToolMetadata = {
-  name: "export",
-  description: "Export data, Pro plan only",
-};
-
-export default async function exportData({
-  format,
-}: InferSchema<typeof schema>) {
-  const result = await check("export");
-
-  if (!result.allowed) {
-    return result.message;
-  }
-
-  return `Exported data as ${format} (plan: ${result.plan})`;
-}
-```
-
-```typescript title="src/tools/pro-tool.ts"
-import { z } from "zod";
-import { type InferSchema, type ToolMetadata } from "xmcp";
-import { track } from "@xmcp-dev/commet";
-
-export const schema = {
-  prompt: z.string().describe("The prompt to generate content from"),
-};
-
-export const metadata: ToolMetadata = {
-  name: "ai_generate",
-  description: "Generate content with AI, metered feature that tracks units",
-};
-
-export default async function aiGenerate({
-  prompt,
-}: InferSchema<typeof schema>) {
-  const result = await track({
-    feature: "ai_generate",
-    units: 1,
-  });
-
-  if (!result.allowed) {
-    return result.message;
-  }
-
-  return `Generated: ${prompt} (${result.remaining ?? "unlimited"} uses remaining)`;
-}
-```
+See the full working example with free, gated, metered, and AI token tools in the [`commet-http` example](https://github.com/basementstudio/xmcp/tree/canary/examples/commet-http).

@@ -1,6 +1,14 @@
 export { commetProvider } from "./provider.js";
 
-export { check, track, getCustomerId, getPortalUrl } from "./commet.js";
+export {
+  getClient,
+  getCustomerId,
+  getPortalUrl,
+  check,
+  track,
+} from "./commet.js";
+
+export type { Commet } from "@commet/node";
 
 export type {
   CommetProviderConfig,
