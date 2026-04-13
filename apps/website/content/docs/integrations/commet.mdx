@@ -8,7 +8,7 @@ description: "Add subscription-aware billing, feature gating, and usage tracking
 
 ## Overview
 
-The Commet plugin enables subscription-aware billing for your xmcp server using [Commet](https://commet.co/?utm_source=xmcp&utm_medium=docs&utm_campaign=plugin). Your tools get full context: which plan the customer is on, what features they can access, how much usage remains, and automatic consumption tracking.
+The Commet plugin enables subscription-aware billing for your xmcp server using [Commet](https://commet.co/go/partner/?c=xmcp). Your tools get full context: which plan the customer is on, what features they can access, how much usage remains, and automatic consumption tracking.
 
 - **Feature-level gating**: Tool A is free, Tool B is Pro, Tool C is Enterprise
 - **Usage tracking**: report units or AI tokens, your plan's consumption model handles the rest
@@ -50,7 +50,7 @@ Install the Commet plugin:
 
 Follow these steps to configure your billing product before integrating the plugin:
 
-1. **Create an account** at [commet.co/signup](https://commet.co/signup?utm_source=xmcp&utm_medium=docs&utm_campaign=plugin)
+1. **Create an account** at [commet.co/templates/xmcp](https://commet.co/go/partner/templates/xmcp?c=xmcp)
 2. **Copy your API Key** (`ck_xxx`) from Settings > API Keys
 3. **Create a Product** from the dashboard. This represents your xmcp server
 4. **Define your Plans** (e.g., Free, Pro, Enterprise). Each plan includes a set of features
@@ -88,7 +88,7 @@ export default commetProvider({
 
 ## Access the client
 
-The `getClient()` function gives you access to the full [`@commet/node` SDK](https://commet.co/docs/sdks/node?utm_source=xmcp&utm_medium=docs&utm_campaign=plugin), allowing you to leverage all Commet features in your MCP tools. The `getCustomerId()` function returns the customer ID extracted from the request header.
+The `getClient()` function gives you access to the full [`@commet/node` SDK](https://commet.co/go/partner/docs?c=xmcp), allowing you to leverage all Commet features in your MCP tools. The `getCustomerId()` function returns the customer ID extracted from the request header.
 
 ### Example: Feature gating
 
