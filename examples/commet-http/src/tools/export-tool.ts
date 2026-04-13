@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { type InferSchema, type ToolMetadata } from "xmcp";
-import { check } from "@xmcp-dev/commet";
+import { getClient, getCustomerId } from "@xmcp-dev/commet";
 
 export const schema = {
   format: z.enum(["csv", "json", "pdf"]).describe("Export format"),
@@ -14,11 +14,13 @@ export const metadata: ToolMetadata = {
 export default async function exportData({
   format,
 }: InferSchema<typeof schema>) {
-  const result = await check("export");
+  const client = getClient();
+  const customerId = getCustomerId();
+  const { data } = await client.customer(customerId).features.check("export");
 
-  if (!result.allowed) {
-    return result.message;
+  if (!data?.allowed) {
+    return "Your plan does not include this feature.";
   }
 
-  return `Exported data as ${format} (plan: ${result.plan})`;
+  return `Exported data as ${format}`;
 }

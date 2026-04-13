@@ -78,14 +78,6 @@ export default commetProvider({
 
 ### Configuration Options
 
-```typescript
-interface CommetProviderConfig {
-  apiKey: string;
-  environment?: "production" | "sandbox";
-  customerHeader?: string;
-}
-```
-
 - `apiKey`: Your Commet API key (starts with `ck_`)
 - `environment`: Defaults to the SDK's default environment
 - `customerHeader`: HTTP header name for the customer identifier (defaults to `"customer-key"`)
@@ -94,124 +86,128 @@ interface CommetProviderConfig {
   Customer identity is provided via the `customer-key` header (or the established header name you configure in `customerHeader`). This is the same ID you use when creating customers in Commet.
 </Callout>
 
-## Feature Gating
-
-Use `check` to gate tools behind boolean features. No usage is tracked:
-
-```typescript
-import { check } from "@xmcp-dev/commet";
-
-const result = await check("custom-branding");
-
-if (!result.allowed) {
-  return result.message;
-}
-```
-
-### Check Response
-
-```typescript
-{
-  allowed: boolean;
-  code: "feature_enabled" | "feature_not_allowed" | "no_subscription";
-  message: string;
-  plan?: string;       // "Pro", "Enterprise", etc.
-}
-```
-
-## Usage Tracking
-
-Use `track` for consumption-based features. It checks access and records usage in one call.
-
-### `TrackOptions`
-
-`track` accepts a discriminated union. Pass either `units` for metered consumption, or `model` with token counts for AI token tracking:
-
-```typescript
-// Metered consumption
-type TrackUsageOptions = {
-  feature: string;
-  units: number;
-};
-
-// AI token tracking
-type TrackTokensOptions = {
-  feature: string;
-  model: string;
-  inputTokens: number;
-  outputTokens: number;
-  cacheReadTokens?: number;
-  cacheWriteTokens?: number;
-};
-
-type TrackOptions = TrackUsageOptions | TrackTokensOptions;
-```
-
-### Metered usage
-
-```typescript
-import { track } from "@xmcp-dev/commet";
-
-const result = await track({
-  feature: "ai_generate",
-  units: 1,
-});
-
-if (!result.allowed) {
-  return result.message;
-}
-
-// result.remaining -> 847
-// result.included  -> 1000
-```
-
-For operations with different cost weights:
-
-```typescript
-const result = await track({
-  feature: "ai_generate",
-  units: 5,
-});
-```
-
-### AI token tracking
-
-For AI-powered tools, track token consumption per model:
-
-```typescript
-import { track } from "@xmcp-dev/commet";
-
-const result = await track({
-  feature: "ai_generate",
-  model: "claude-sonnet-4-20250514",
-  inputTokens: 1200,
-  outputTokens: 340,
-  cacheReadTokens: 500,
-});
-```
-
-Commet calculates costs using the AI model catalog with configurable margins per feature.
-
-### Track Response
-
-```typescript
-{
-  allowed: boolean;
-  code: "tracked" | "feature_not_allowed" | "no_subscription";
-  message: string;
-  plan?: string;         // "Pro"
-  remaining?: number;    // 847
-  included?: number;     // 1000
-  overage?: number;      // 0
-  unlimited?: boolean;   // false
-}
-```
-
 ## Access the client
 
-The `getClient()` function gives you access to the full [`@commet/node` SDK](https://commet.co/docs/sdks/node?utm_source=xmcp&utm_medium=docs&utm_campaign=plugin), allowing you to leverage all Commet features in your MCP tools.
+The `getClient()` function gives you access to the full [`@commet/node` SDK](https://commet.co/docs/sdks/node?utm_source=xmcp&utm_medium=docs&utm_campaign=plugin), allowing you to leverage all Commet features in your MCP tools. The `getCustomerId()` function returns the customer ID extracted from the request header.
 
-### Example: Get the customer's billing portal URL
+### Example: Feature gating
+
+Use the SDK to gate tools behind boolean features:
+
+```typescript title="src/tools/export-tool.ts"
+import { z } from "zod";
+import type { InferSchema, ToolMetadata } from "xmcp";
+import { getClient, getCustomerId } from "@xmcp-dev/commet";
+
+export const schema = {
+  format: z.enum(["csv", "json", "pdf"]).describe("Export format"),
+};
+
+export const metadata: ToolMetadata = {
+  name: "export",
+  description: "Export data in multiple formats, Pro plan only",
+};
+
+export default async function exportData({
+  format,
+}: InferSchema<typeof schema>) {
+  const client = getClient();
+  const customerId = getCustomerId();
+  const { data } = await client.customer(customerId).features.check("export");
+
+  if (!data?.allowed) {
+    return "Your plan does not include this feature.";
+  }
+
+  return `Exported data as ${format}`;
+}
+```
+
+### Example: Usage tracking
+
+Track metered consumption with the SDK:
+
+```typescript title="src/tools/ai-generate.ts"
+import { z } from "zod";
+import type { InferSchema, ToolMetadata } from "xmcp";
+import { getClient, getCustomerId } from "@xmcp-dev/commet";
+
+export const schema = {
+  prompt: z.string().describe("The prompt to generate content from"),
+};
+
+export const metadata: ToolMetadata = {
+  name: "ai_generate",
+  description: "Generate content with AI, tracks 1 unit per call",
+};
+
+export default async function aiGenerate({
+  prompt,
+}: InferSchema<typeof schema>) {
+  const client = getClient();
+  const customerId = getCustomerId();
+
+  const { data } = await client.customer(customerId).features.check("ai_generate");
+
+  if (!data?.allowed) {
+    return "Your plan does not include this feature.";
+  }
+
+  await client.usage.track({
+    feature: "ai_generate",
+    customerId,
+    value: 1,
+  });
+
+  return `Generated content for: "${prompt}"`;
+}
+```
+
+### Example: AI token tracking
+
+Track per-model token consumption:
+
+```typescript title="src/tools/ai-chat.ts"
+import { z } from "zod";
+import type { InferSchema, ToolMetadata } from "xmcp";
+import { getClient, getCustomerId } from "@xmcp-dev/commet";
+
+export const schema = {
+  prompt: z.string().describe("The prompt to send to the AI model"),
+};
+
+export const metadata: ToolMetadata = {
+  name: "ai_chat",
+  description: "Chat with AI, tracks token consumption per model",
+};
+
+export default async function aiChat({
+  prompt,
+}: InferSchema<typeof schema>) {
+  const client = getClient();
+  const customerId = getCustomerId();
+
+  const { data } = await client.customer(customerId).features.check("ai_chat");
+
+  if (!data?.allowed) {
+    return "Your plan does not include this feature.";
+  }
+
+  await client.usage.track({
+    feature: "ai_chat",
+    customerId,
+    model: "anthropic/claude-haiku-4.5",
+    inputTokens: 1200,
+    outputTokens: 340,
+  });
+
+  return `Response to: "${prompt}"`;
+}
+```
+
+### Example: Billing portal
+
+Get the customer's billing portal URL for upgrade and management flows:
 
 ```typescript title="src/tools/manage-billing.ts"
 import type { ToolMetadata } from "xmcp";
@@ -232,31 +228,6 @@ export default async function manageBilling(): Promise<string> {
   }
 
   return `Manage your subscription: ${response.data.portalUrl}`;
-}
-```
-
-### Example: Get current subscription details
-
-```typescript title="src/tools/subscription-info.ts"
-import type { ToolMetadata } from "xmcp";
-import { getClient, getCustomerId } from "@xmcp-dev/commet";
-
-export const metadata: ToolMetadata = {
-  name: "subscription-info",
-  description: "Get the customer's current subscription details",
-};
-
-export default async function subscriptionInfo(): Promise<string> {
-  const client = getClient();
-  const customerId = getCustomerId();
-  const response = await client.customer(customerId).subscription.get();
-
-  if (!response.success || !response.data) {
-    return "No active subscription found.";
-  }
-
-  const sub = response.data;
-  return `Plan: ${sub.plan.name} | Status: ${sub.status}`;
 }
 ```
 

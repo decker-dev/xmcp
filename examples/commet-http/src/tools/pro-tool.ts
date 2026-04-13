@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { type InferSchema, type ToolMetadata } from "xmcp";
-import { track } from "@xmcp-dev/commet";
+import { getClient, getCustomerId } from "@xmcp-dev/commet";
 
 export const schema = {
   prompt: z.string().describe("The prompt to generate content from"),
@@ -14,14 +14,20 @@ export const metadata: ToolMetadata = {
 export default async function aiGenerate({
   prompt,
 }: InferSchema<typeof schema>) {
-  const result = await track({
-    feature: "ai_generate",
-    units: 1,
-  });
+  const client = getClient();
+  const customerId = getCustomerId();
 
-  if (!result.allowed) {
-    return result.message;
+  const { data } = await client.customer(customerId).features.check("ai_generate");
+
+  if (!data?.allowed) {
+    return "Your plan does not include this feature.";
   }
 
-  return `Generated content for: "${prompt}" (plan: ${result.plan}, remaining: ${result.remaining ?? "unlimited"})`;
+  await client.usage.track({
+    feature: "ai_generate",
+    customerId,
+    value: 1,
+  });
+
+  return `Generated content for: "${prompt}"`;
 }
